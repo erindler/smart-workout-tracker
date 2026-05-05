@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Design Tokens — canonical source of truth for the app.
+   Generated from: https://www.realtimecolors.com/?colors=f1f7ed-020401-68a848-29613a-36815e&fonts=Inter-Inter
+   Light mode is the default; dark mode overrides via media query.
+   ============================================================ */
+
+:root {
+  --text: #0c1208;
+  --background: #fcfefb;
+  --primary: #77b757;
+  --secondary: #9ed6af;
+  --accent: #7ec9a6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #f1f7ed;
+    --background: #020401;
+    --primary: #68a848;
+    --secondary: #29613a;
+    --accent: #36815e;
+  }
+}
+
+/* ============================================================
+   Tailwind v4 theme — expose design token CSS variables as
+   Tailwind color utilities: bg-primary, text-background, etc.
+   ============================================================ */
+
+@theme inline {
+  --color-text: var(--text);
+  --color-background: var(--background);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
