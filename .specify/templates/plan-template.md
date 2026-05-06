@@ -102,3 +102,61 @@ directories captured above]
 |-----------|------------|-------------------------------------|
 | [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
 | [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+
+## Architecture Decisions
+
+### Tradeoffs
+
+| Decision | Chosen Approach | Alternative | Tradeoff |
+|----------|----------------|-------------|----------|
+| [decision] | [chosen] | [alternative] | [tradeoff] |
+
+### Risks
+
+| Risk | Likelihood | Mitigation |
+|------|-----------|-----------|
+| [risk] | Low/Medium/High | [mitigation] |
+
+### Dependencies
+
+[List external services, APIs, or systems this feature depends on]
+
+## Quality Plan
+
+### Security
+
+[Threat model and mitigations for this feature]
+
+### Accessibility (WCAG 2.1 Level AA)
+
+[Specific a11y requirements and implementation notes]
+
+### Performance
+
+[Performance goals and implementation approach]
+
+### Responsive Design & PWA
+
+[Confirm compliance with Constitution §X or document exceptions in Complexity Tracking]
+
+### Error Handling
+
+[How errors from each external system are caught and surfaced to the user]
+
+### Logging
+
+Per Constitution §XI, the following server-side operations MUST produce logs:
+
+| Operation | Level | Fields logged | Notes |
+|-----------|-------|---------------|-------|
+| [e.g., signInAction — Supabase error] | `error` | `[context]`, status, message | Never log passwords or tokens |
+| [e.g., auth/callback — code exchange failure] | `error` | `[context]`, status, message | |
+| [e.g., significant state transition] | `info` | `[context]`, description | |
+
+**Format**: `console.error('[functionName] Description:', error.status, error.message)`  
+**PII policy**: Do not log email addresses or user identifiers in production log lines.  
+**Upgrade path**: Replace `console.*` with `src/lib/logger.ts` when structured logging is introduced.
+
+## Test Strategy
+
+[Tests derived from spec acceptance criteria — behaviour-driven, not implementation-driven]

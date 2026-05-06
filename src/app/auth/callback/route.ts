@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@supabase/ssr';
 import { getSafeRedirect } from '@/lib/supabase/middleware';
 
 export async function GET(request: NextRequest) {
@@ -18,12 +18,33 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next');
 
   if (code) {
-    const supabase = await createClient();
+    // Build the redirect response up-front so cookies can be written directly onto it.
+    const redirectUrl = `${baseUrl}${getSafeRedirect(next)}`;
+    const response = NextResponse.redirect(redirectUrl);
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      return NextResponse.redirect(`${baseUrl}${getSafeRedirect(next)}`);
+      return response;
     }
+    console.error('[auth/callback] exchangeCodeForSession error:', error.status, error.message);
   }
 
   return NextResponse.redirect(`${baseUrl}/login?error=auth-code-error`);

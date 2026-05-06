@@ -1,3 +1,4 @@
+// Validation schemas retained for future use (currently only Google OAuth is active)
 import { z } from 'zod';
 
 export const SignInSchema = z.object({
@@ -19,3 +20,4 @@ export const RegisterSchema = z
 export const ForgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
 });
+

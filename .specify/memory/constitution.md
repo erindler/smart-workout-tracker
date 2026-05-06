@@ -1,17 +1,17 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.1
-Modified principles: none
-Added sections: Project Standards (design tokens, responsive/PWA targets)
+Version change: 1.1.1 → 1.2.0
+Modified principles: VII (Holistic Quality During Planning — logging added)
+Added sections: XI. Structured Logging (new Project Standard)
 Removed sections: none
 Templates reviewed:
-  ✅ .specify/templates/plan-template.md — "Technical Context" Target Platform and Constraints fields now carry these standards; no template change needed
-  ✅ .specify/templates/spec-template.md — FR and SC sections can reference these standards by citation; no template change needed
-  ✅ .specify/templates/tasks-template.md — no changes needed; task content derives from spec/plan
+  ✅ .specify/templates/plan-template.md — Quality Plan section already has "Error Handling"; plans must now also include a "Logging" subsection
+  ✅ .specify/templates/spec-template.md — no structural change needed; logging is an implementation-level concern captured in the plan
+  ✅ .specify/templates/tasks-template.md — no changes needed; logging tasks derive from the plan
   ✅ .specify/templates/checklist-template.md — no changes needed
 Follow-up TODOs:
-  - specs/001-login-page/plan.md Constitution Check: add row for new Project Standards (IX, X) — mark PASS
+  - specs/001-login-page/plan.md: add logging subsection to Quality Plan and XI row to Constitution Check
 -->
 
 # Smart Workout Tracker Constitution
@@ -67,10 +67,11 @@ Complexity MUST be documented in the plan's Complexity Tracking section with exp
 
 ### VII. Holistic Quality During Planning
 
-Security, accessibility, performance, and error handling are not afterthoughts. These MUST be
-considered and documented during `/speckit.plan`, not retrofitted after implementation.
-The plan MUST include: threat/risk assessment, accessibility requirements, performance goals
-and constraints, and error handling strategy. Features that omit these are incomplete plans.
+Security, accessibility, performance, error handling, and **logging** are not afterthoughts.
+These MUST be considered and documented during `/speckit.plan`, not retrofitted after
+implementation. The plan MUST include: threat/risk assessment, accessibility requirements,
+performance goals and constraints, error handling strategy, and a logging strategy. Features
+that omit these are incomplete plans.
 
 ### VIII. Spec-Gated Review
 
@@ -112,6 +113,40 @@ Screen". To achieve a native feel:
 
 Every plan MUST include a Responsive Design & PWA section in its Quality Plan confirming
 compliance with these targets. Deviations require explicit justification in Complexity Tracking.
+
+### XI. Structured Logging (NON-NEGOTIABLE)
+
+Every feature MUST implement logging at the server layer. Logging exists to make failures
+observable without requiring a debugger or user reproduction.
+
+**What MUST be logged**:
+- All Server Action errors — including the Supabase/API error code and message — at `error` level
+- All Route Handler errors (e.g. failed code exchanges, OTP verification failures) at `error` level
+- Significant state transitions in server-side flows (e.g. OAuth redirect initiated, session
+  refreshed) at `info` level when they aid operational visibility
+
+**Format**:
+- Every log line MUST include a `[context]` prefix identifying the file and function:
+  `console.error('[registerAction] Supabase error:', error.status, error.message)`
+- Log the **raw** error status code and message — not a sanitised user-facing string. The
+  user-facing string conceals information that is needed for debugging.
+
+**What MUST NOT be logged**:
+- Passwords, tokens, full session objects, or any credential material
+- Personally identifiable information (PII) such as email addresses in production
+- Client-side errors that are already surfaced to the user via UI
+
+**Escalation to structured logging**:
+- For now, `console.error` / `console.info` / `console.warn` are acceptable.
+- When the app moves to production, logs MUST be forwarded to a structured logging service
+  (e.g. Vercel Log Drains, Datadog, Axiom). The transition MUST replace `console.*` calls
+  with a thin logger utility (`src/lib/logger.ts`) so the call sites do not need to change.
+- The logger utility MUST be introduced as a dedicated task in the plan that first requires it.
+
+**Every plan's Quality Plan MUST include a "Logging" subsection** documenting:
+- Which server-side operations produce logs
+- What fields are logged (context, status, message — never credentials)
+- Whether a structured logging service is required for the feature's scale
 
 ## Quality Gates
 
@@ -163,4 +198,4 @@ preference in AI-assisted development sessions.
 - Specs for abandoned features MUST be moved to an `archive/` subdirectory with a note explaining
   why the feature was not completed
 
-**Version**: 1.1.1 | **Ratified**: 2026-05-04 | **Last Amended**: 2026-05-04
+**Version**: 1.2.0 | **Ratified**: 2026-05-04 | **Last Amended**: 2026-05-05
