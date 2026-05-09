@@ -34,8 +34,8 @@ Supabase client; it is never written to directly.
 
 **Notes**:
 - Passwords are hashed by Supabase Auth (Argon2id) and never exposed to application code.
-- OAuth users never have a password; `app_metadata.provider` identifies the auth method.
-- `confirmed_at` must be non-null before the user can sign in with email/password.
+- OAuth users never have a password; `app_metadata.provider` identifies the auth method (`{"provider": "google"}`).
+- `confirmed_at` is set automatically by Supabase on first Google OAuth sign-in; no email confirmation step is required.
 
 ---
 
@@ -59,35 +59,29 @@ a long-lived refresh token. `@supabase/ssr` writes them to `HttpOnly` cookies.
 ```
 [Unauthenticated]
     │
-    ├─▶ Submit email+password ──▶ [Supabase validates] ──▶ [Authenticated] (session cookie set)
-    │         └─ invalid ────────▶ [Unauthenticated] (inline error shown)
-    │
-    ├─▶ Click OAuth button ──▶ [OAuth provider consent] ──▶ /auth/callback ──▶ [Authenticated]
-    │         └─ cancel/error ──▶ /login (error message)
-    │
-    ├─▶ Register (new account) ──▶ [Email sent, confirmation pending]
-    │         └─ click link ──▶ /auth/confirm ──▶ [Authenticated]
-    │
-    └─▶ Forgot password ──▶ [Reset email sent]
-              └─ click link ──▶ /auth/callback ──▶ [Reset password form] ──▶ [Unauthenticated, go to /login]
+    └─▶ Click Google OAuth button ──▶ [Google consent screen] ──▶ /auth/callback ──▶ [Authenticated]
+              └─ cancel/error ──▶ /login (error message)
 
 [Authenticated]
-    └─▶ Sign out ──▶ [Session cleared] ──▶ [Unauthenticated]
+    └─▶ Sign out ──▶ [Session cleared] ──▶ [Unauthenticated] ──▶ /login
 ```
+
+> **Descoped flows** (planned but not implemented): email/password sign-in, account
+> registration with email confirmation, and password reset via email.
 
 ---
 
 ## Validation Rules
 
-These rules are enforced both client-side (React Hook Form + Zod) and server-side (Server
-Actions re-validate the same Zod schema before calling Supabase).
+The only application-level validation is on the `next` redirect parameter, enforced in
+`getSafeRedirect()` before every redirect:
 
-| Field            | Rule                                               | Error Message                              |
-|------------------|----------------------------------------------------|--------------------------------------------|
-| `email`          | Required, valid email format                       | "Please enter a valid email address."      |
-| `password`       | Required, min 8 characters                         | "Password must be at least 8 characters."  |
-| `confirmPassword`| Must match `password`                              | "Passwords do not match."                  |
-| `next` param     | Must start with `/`, must NOT start with `//`      | Silently fallback to `/`                   |
+| Field        | Rule                                               | Behaviour                  |
+|--------------|----------------------------------------------------|----------------------------|
+| `next` param | Must start with `/`, must NOT start with `//`      | Silently falls back to `/` |
+
+> **Descoped**: `email`, `password`, and `confirmPassword` field validation rules were
+> planned for email/password and registration flows. Those flows were never implemented.
 
 ---
 

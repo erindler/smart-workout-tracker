@@ -5,16 +5,18 @@
 
 ## Summary
 
-Build the authentication entry point for the Smart Workout Tracker. Users can sign in via
-email/password or OAuth (Google, GitHub) using Supabase Auth with the Next.js App Router.
-The feature includes sign-in, registration, forgot-password, and the OAuth/email callback
-route handlers. All credential handling is delegated to Supabase (no passwords stored in
-application code). Protected routes are enforced via `middleware.ts`.
+Build the authentication entry point for the Smart Workout Tracker. Users sign in via
+Google OAuth using Supabase Auth with the Next.js App Router. Email/password sign-in,
+registration, and forgot-password were descoped during implementation (Supabase free-tier
+email limit of 3/hour). All credential handling is delegated to Supabase. Protected routes
+are enforced via `proxy.ts` (Next.js 16 renames `middleware.ts` → `proxy.ts` and the export
+must be named `proxy`, not `middleware`).
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x, Next.js 15 (App Router), React 19  
-**Primary Dependencies**: `@supabase/supabase-js ^2.x`, `@supabase/ssr ^0.6.x`, `react-hook-form ^7.x`, `@hookform/resolvers ^3.x`, `zod ^3.x`, Tailwind CSS  
+**Language/Version**: TypeScript 5.x, Next.js 16.2.4 (App Router), React 19  
+**Primary Dependencies**: `@supabase/supabase-js ^2.x`, `@supabase/ssr ^0.10.x`, `zod ^4.x`, `cross-env ^7.x` (dev), Tailwind CSS v4  
+> `react-hook-form` and `@hookform/resolvers` are installed but unused — registration was descoped.  
 **Storage**: Supabase Auth (`auth.users` table managed by Supabase — no custom tables for this feature)  
 **Testing**: Jest + React Testing Library (unit/integration), Playwright (E2E)  
 **Target Platform**: Web (modern browsers: Chrome, Firefox, Safari, Edge — current -1 versions); primary mobile target is Mobile Safari on iPhone (PWA via "Add to Home Screen")  
@@ -31,14 +33,14 @@ application code). Protected routes are enforced via `middleware.ts`.
 |-----------|--------|-------|
 | I. Spec-First Development | ✅ PASS | `spec.md` created and approved before planning began |
 | II. Clarify Before Planning | ✅ PASS | Tech stack (Next.js, Supabase Auth) clarified via user Q&A before any design work |
-| III. Stable Requirements Before Architecture | ✅ PASS | All 4 user stories fully specified with acceptance criteria |
+| III. Stable Requirements Before Architecture | ✅ PASS | 1 active user story (Google OAuth); email/password stories descoped during implementation |
 | IV. Traceability | ✅ PASS | All tasks (in `tasks.md`) will trace to FR-xxx and a user story |
 | V. Behavior-Driven Testing | ✅ PASS | Tests derived from spec acceptance scenarios (see Test Strategy below) |
 | VI. Simplicity Over Cleverness | ✅ PASS | No custom auth logic; Supabase handles all credential storage/verification |
 | VII. Holistic Quality During Planning | ✅ PASS | Security, accessibility, error handling all documented below |
 | VIII. Spec-Gated Review | ✅ PASS | Reminder included in acceptance criteria section |
-| IX. Global Design Tokens | ✅ PASS | `docs/styles.css` seeds `src/app/globals.css`; `globals.css` is the canonical source of truth (FR-012) |
-| X. Responsive Design & PWA Targets | ✅ PASS | 390px + 1280px breakpoints, `display: standalone`, 44pt touch targets documented (FR-014, FR-015) |
+| IX. Global Design Tokens | ✅ PASS | `docs/styles.css` seeds `src/app/globals.css`; `globals.css` is the canonical source of truth (FR-006) |
+| X. Responsive Design & PWA Targets | ✅ PASS | 390px + 1280px breakpoints, `display: standalone`, 44pt touch targets documented (FR-008, FR-009) |
 
 **Post-Phase 1 re-check**: All principles still pass. No violations to justify.
 
@@ -66,19 +68,11 @@ src/
     (auth)/
       layout.tsx                    ← unauthenticated centered-card layout
       login/
-        page.tsx                    ← sign-in page (US1, US2)
-        actions.ts                  ← signInAction, signInWithOAuthAction Server Actions
-      register/
-        page.tsx                    ← registration page (US3)
-        actions.ts                  ← registerAction Server Action
-      forgot-password/
-        page.tsx                    ← password reset request page (US4)
-        actions.ts                  ← requestPasswordResetAction Server Action
+        page.tsx                    ← Google sign-in page (Server Component)
+        actions.ts                  ← signInWithOAuthAction('google') Server Action
     auth/
       callback/
-        route.ts                    ← OAuth PKCE + email confirmation code exchange
-      confirm/
-        route.ts                    ← Email OTP verification
+        route.ts                    ← OAuth PKCE code exchange; cookies written onto redirect response
     (protected)/
       layout.tsx                    ← authenticated shell (redirects if no session)
       page.tsx                      ← dashboard placeholder (redirect destination)
@@ -86,35 +80,16 @@ src/
     supabase/
       client.ts                     ← createBrowserClient() for Client Components
       server.ts                     ← createServerClient() for Server Components/Actions
-      middleware.ts                  ← updateSession() helper for middleware.ts
+      middleware.ts                  ← updateSession() + getSafeRedirect() helpers
+      __tests__/
+        middleware.test.ts          ← getSafeRedirect unit tests (open-redirect, SC-004)
     validations/
-      auth.ts                       ← Zod schemas: SignInSchema, RegisterSchema, ForgotPasswordSchema
+      auth.ts                       ← Zod schemas (installed but unused; registration descoped)
   components/
     auth/
-      AuthCard.tsx                  ← shared form card wrapper
-      OAuthButtons.tsx              ← Google + GitHub sign-in buttons
-      FieldError.tsx                ← reusable inline field error component
-  middleware.ts                     ← Next.js middleware: session refresh + route guard
-  
-tests/
-  unit/
-    lib/
-      validations/
-        auth.test.ts                ← Zod schema unit tests
-      supabase/
-        middleware.test.ts          ← getSafeRedirect unit test (open-redirect)
-  integration/
-    auth/
-      login.test.tsx                ← React Testing Library: login form behavior
-      register.test.tsx             ← React Testing Library: register form behavior
-      forgot-password.test.tsx      ← React Testing Library: forgot-password form
-  e2e/
-    auth/
-      sign-in.spec.ts               ← Playwright: email/password sign-in flow (US1)
-      oauth.spec.ts                 ← Playwright: OAuth flow mock (US2)
-      register.spec.ts              ← Playwright: registration flow (US3)
-      forgot-password.spec.ts       ← Playwright: password reset flow (US4)
-      redirect.spec.ts              ← Playwright: open-redirect prevention (SC-005)
+      AuthCard.tsx                  ← shared card wrapper with app name heading
+      OAuthButtons.tsx              ← Google sign-in button (4-color Google G logo)
+  proxy.ts                          ← Next.js 16 route guard (replaces middleware.ts)
 ```
 
 **Structure Decision**: Next.js App Router with a `(auth)` route group for a shared
@@ -129,7 +104,7 @@ URLs match the Supabase dashboard redirect URL configuration exactly.
 |----------|----------------|-------------|----------|
 | Auth service | Supabase Auth | Custom JWT + bcrypt | Supabase: faster, zero password storage, managed; Custom: full control, more complexity |
 | Session storage | `HttpOnly` cookies via `@supabase/ssr` | `localStorage` | Cookies: SSR-safe, XSS-resistant; localStorage: simpler but not SSR-safe and XSS-exposed |
-| Form library | React Hook Form + Zod | Native form + `useActionState` only | RHF: real-time confirm-password UX; native: simpler but no cross-field reactive feedback |
+| Form library | N/A (OAuth-only) | React Hook Form + Zod | Registration was descoped; no form fields exist on the login page — only an OAuth button |
 | Route protection | Middleware | Layout-level checks | Middleware: runs on every request including RSC navigation; layouts: insufficient for partial hydration |
 | JWT validation | `getClaims()` | `getSession()` | `getClaims()`: validates JWT signature server-side; `getSession()`: trusts cookie without re-validation |
 
@@ -140,12 +115,14 @@ URLs match the Supabase dashboard redirect URL configuration exactly.
 | Supabase redirect URL misconfiguration (OAuth fails) | Medium | Document in quickstart; fail fast in `auth/callback` with clear error redirect |
 | `next` param open-redirect vulnerability | Low (mitigated) | `getSafeRedirect()` helper; covered by automated test (SC-005) |
 | Session cookie not propagated in middleware | Medium | Follow `updateSession` pattern exactly as documented in research.md §2; MUST return `supabaseResponse` unmodified |
+| Session cookie not attached to callback redirect | High (occurred) | In `auth/callback/route.ts`, create the Supabase client with `response.cookies.set` bound to the redirect `NextResponse` directly — `next/headers` cookies are not written to an explicit redirect response |
+| Corporate SSL inspection breaking Supabase HTTPS | Medium (occurred) | Use `NODE_TLS_REJECT_UNAUTHORIZED=0` via `cross-env` in `dev` script only; `build` and `start` are unaffected |
 | Deprecated env var `SUPABASE_ANON_KEY` confusion | Low | Use `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from day 1 |
 
 ### Dependencies
 
 - Supabase project must exist before implementation begins (foundational setup task)
-- Google OAuth app and GitHub OAuth app must be configured in Supabase before OAuth testing
+- Google OAuth app must be configured in Supabase before OAuth testing (GitHub OAuth was descoped)
 - `.env.local` must be present with correct Supabase credentials
 
 ## Quality Plan
@@ -155,9 +132,8 @@ URLs match the Supabase dashboard redirect URL configuration exactly.
 - All credential verification delegated to Supabase — zero plaintext passwords in application code (FR-006, SC-006)
 - JWT validated via `getClaims()` in middleware (not `getSession()` which trusts unverified cookie)
 - `HttpOnly` cookies for session tokens — inaccessible to client-side JavaScript (XSS protection)
-- `next` redirect parameter sanitized with `getSafeRedirect()` — prevents open-redirect attacks (FR-011)
-- Error messages do not reveal which credential (email vs password) was wrong (FR-005)
-- Server Actions re-validate Zod schemas server-side — client-side validation cannot be bypassed
+- `next` redirect parameter sanitized with `getSafeRedirect()` — prevents open-redirect attacks (FR-005)
+- Single Server Action (`signInWithOAuthAction`) delegates entirely to Supabase; no form field parsing or schema validation needed
 
 ### Accessibility (WCAG 2.1 Level AA)
 

@@ -19,7 +19,7 @@ points entirely to `@supabase/ssr`.
 **Key versions**:
 ```
 @supabase/supabase-js  ^2.x
-@supabase/ssr          ^0.6.x (latest stable)
+@supabase/ssr          ^0.10.x (actual installed version)
 ```
 
 **Environment variables** (new format — legacy `SUPABASE_ANON_KEY` still works but will be deprecated):
@@ -97,23 +97,19 @@ app/
   (auth)/
     layout.tsx          ← centered card layout, no navigation, with app branding
     login/
-      page.tsx
-      actions.ts        ← Server Actions for sign-in
-    register/
-      page.tsx
-      actions.ts        ← Server Actions for registration
-    forgot-password/
-      page.tsx
-      actions.ts        ← Server Action for password-reset request
+      page.tsx          ← Google sign-in page (Server Component)
+      actions.ts        ← signInWithOAuthAction('google') Server Action
   auth/
     callback/
-      route.ts          ← OAuth PKCE + email confirmation code exchange
-    confirm/
-      route.ts          ← Email OTP / magic link verification
+      route.ts          ← OAuth PKCE code exchange (cookies written onto redirect response)
   (protected)/
     layout.tsx          ← authenticated shell, redirects unauthenticated to /login
     page.tsx            ← dashboard (redirect destination after login)
 ```
+
+> **Descoped**: `register/`, `forgot-password/`, and `auth/confirm/` were planned but removed
+> (Supabase free-tier email limit). `middleware.ts` is `proxy.ts` in Next.js 16; the export
+> is named `proxy`, not `middleware`.
 
 ---
 
@@ -134,19 +130,15 @@ URL when behind a reverse proxy / Vercel edge network.
 
 ---
 
-## 6. Form Validation Strategy (Confirm Password + Min-Length)
+## 6. Form Validation Strategy [DESCOPED]
 
-**Decision**: React Hook Form (`'use client'`) + Zod schema for client-side real-time feedback.
-Same Zod schema re-validated server-side in the Server Action. `useActionState` (React 19)
-bridges the client form to the Server Action.
+**Status**: Not applicable. Registration was descoped; the login page has no form fields.
+Google OAuth is the only authentication method — no client-side or server-side field
+validation is required. `zod` and `react-hook-form` remain installed but are unused.
 
-**Rationale**: Confirm-password requires watching two field values simultaneously — inherently
-client-side state. Server-side re-validation with the same Zod schema ensures the constraint
-cannot be bypassed via direct POST requests.
-
-**Alternatives considered**: Pure Server Action only (no React Hook Form) — no real-time
-confirm-password feedback possible without client JS. Client-only validation — insecure,
-bypassable.
+> Original rationale (for reference): React Hook Form + Zod was chosen for real-time
+> confirm-password cross-field feedback on the registration form. Server-side re-validation
+> with the same Zod schema would have prevented bypass via direct POST requests.
 
 **Packages**:
 ```

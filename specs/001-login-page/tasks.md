@@ -11,6 +11,12 @@ description: "Task list for Login Page (Authentication)"
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
+> **Implementation Scope Change**: During implementation, email/password sign-in (US1), account
+> registration (US3), and password reset (US4) were removed. Supabase free-tier email limits
+> (3/hour) made email-based flows impractical. GitHub OAuth was also removed. The app uses
+> **Google OAuth only**. Tasks for removed flows are marked `[~]` (descoped). Additional
+> unplanned tasks are marked `[+]`.
+
 ## Format: `[ID] [P?] [Story?] Description`
 
 - **[P]**: Can run in parallel (different files, no shared dependencies on in-progress tasks)
@@ -53,68 +59,58 @@ description: "Task list for Login Page (Authentication)"
 
 ---
 
-## Phase 3: User Story 1 — Email/Password Sign In (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 — Email/Password Sign In ~~(Priority: P1)~~ [DESCOPED]
 
-**Goal**: A returning user can sign in with email and password and reach the dashboard.
+**Goal**: ~~A returning user can sign in with email and password and reach the dashboard.~~ **DESCOPED — Google OAuth only.**
 
-**Independent Test**: Navigate to `/login`, submit valid credentials → redirected to `/`; submit invalid credentials → inline error "Invalid email or password." appears without redirect; navigate to `/login` while already authenticated → immediate redirect to `/`.
-
-### Implementation for User Story 1
+### Implementation for User Story 1 [DESCOPED]
 
 - [X] T015 [P] [US1] Create `src/components/auth/AuthCard.tsx` — wraps children in a card with the app name "Smart Workout Tracker" as heading above it; accepts optional `title` prop for the form heading; uses design token classes; responsive: full-width mobile, max-w-sm centered on desktop
-- [X] T016 [P] [US1] Create `src/components/auth/FieldError.tsx` — renders an inline `<p>` with `role="alert"` and `aria-live="polite"` for field-level error messages; accepts `message?: string`; renders nothing when message is undefined
-- [X] T017 [US1] Create `src/app/(auth)/login/page.tsx` — renders email/password sign-in form inside `AuthCard`; reads `?error=` search param and maps to user messages per contracts/ui-contracts.md error table; form uses `useActionState` + `useFormStatus` for pending state; submit button shows loading indicator and is disabled during submission; all interactive targets `min-h-[44px]`; links to `/register` and `/forgot-password`; `<label>` for every input; errors via `FieldError`; `aria-describedby` wired to error IDs
-- [X] T018 [US1] Create `src/app/(auth)/login/actions.ts` — `signInAction(prevState, formData)` Server Action: parses and validates with `SignInSchema`; calls `supabase.auth.signInWithPassword({ email, password })`; on success calls `redirect(getSafeRedirect(next))` (next from hidden input); on Supabase error returns `{ error: 'Invalid email or password.' }`; on network error returns `{ error: 'Something went wrong. Please try again.' }`
+- [~] T016 [US1] `src/components/auth/FieldError.tsx` — created then deleted; not needed without email/password form fields
+- [~] T017 [US1] Email/password `login/page.tsx` — replaced by Google-only Server Component (see T023)
+- [~] T018 [US1] `signInAction` in `login/actions.ts` — never shipped; `signInWithOAuthAction` (T020) is the only action
 
-**Checkpoint**: US1 fully functional — email/password sign-in, error display, already-authenticated redirect, and `?next=` redirect all work independently
+**Checkpoint**: N/A — phase descoped
 
 ---
 
-## Phase 4: User Story 2 — OAuth Sign In (Priority: P2)
+## Phase 4: User Story 2 — Google OAuth Sign In (Priority: P1) 🎯 MVP
 
-**Goal**: A user can sign in with Google or GitHub and reach the dashboard.
+**Goal**: A user can sign in with Google and reach the dashboard. (GitHub OAuth descoped.)
 
 **Independent Test**: Click "Continue with Google" → complete OAuth consent → redirected to `/`; cancel consent → back on `/login` with "Sign-in was cancelled." message.
 
 ### Implementation for User Story 2
 
-- [X] T019 [P] [US2] Create `src/components/auth/OAuthButtons.tsx` — renders "Continue with Google" and "Continue with GitHub" buttons; each calls `signInWithOAuthAction(provider)` via form action; accessible names include provider name; `min-h-[44px]`; no hover-only states; shows per-button loading indicator during submission
-- [X] T020 [US2] Add `signInWithOAuthAction(provider: 'google' | 'github')` to `src/app/(auth)/login/actions.ts` — calls `supabase.auth.signInWithOAuth({ provider, options: { redirectTo: '<origin>/auth/callback' } })`; redirects browser to the returned OAuth URL; derives `origin` from headers (uses `x-forwarded-host` in production)
-- [X] T021 [US2] Create `src/app/auth/callback/route.ts` — GET handler: if `?error=` param present redirect to `/login?error=oauth-cancelled`; if `?code=` present call `supabase.auth.exchangeCodeForSession(code)`; on success redirect to `getSafeRedirect(next)`; on exchange failure redirect to `/login?error=auth-code-error`; construct base URL using `x-forwarded-host` header when present
-- [X] T022 [US2] Create `src/app/auth/confirm/route.ts` — GET handler: reads `token_hash`, `type`, `next`; calls `supabase.auth.verifyOtp({ token_hash, type })`; on success redirect to `getSafeRedirect(next)`; on failure redirect to `/login?error=link-expired`
-- [X] T023 [US2] Update `src/app/(auth)/login/page.tsx` to import and render `OAuthButtons` above the email/password form with a visual divider ("or"); OAuthButtons receives the `next` value so it can be forwarded through the OAuth state param
+- [X] T019 [P] [US2] Create `src/components/auth/OAuthButtons.tsx` — renders "Continue with Google" button with official 4-color Google G SVG logo; calls `signInWithOAuthAction('google')` via form action; accessible name includes provider name; `min-h-[44px]`; no hover-only states; shows loading indicator during submission; styled for light/dark mode per Google branding guidelines
+- [X] T020 [US2] `signInWithOAuthAction(provider: 'google')` in `src/app/(auth)/login/actions.ts` — calls `supabase.auth.signInWithOAuth({ provider, options: { redirectTo: '<origin>/auth/callback' } })`; redirects browser to the returned OAuth URL; derives `origin` from headers (`x-forwarded-host` in production)
+- [X] T021 [US2] Create `src/app/auth/callback/route.ts` — GET handler: if `?error=` param present redirect to `/login?error=oauth-cancelled`; if `?code=` present, creates Supabase client with cookies written directly onto the redirect `NextResponse` (critical — using `next/headers` cookies would not attach to the response); on success redirect to `getSafeRedirect(next)`; on exchange failure redirect to `/login?error=auth-code-error`
+- [~] T022 [US2] `src/app/auth/confirm/route.ts` — created then deleted; not needed without email OTP flows
+- [X] T023 [US2] `src/app/(auth)/login/page.tsx` — implemented as a Server Component (no client hooks); reads `searchParams` as async prop; renders `AuthCard` + `OAuthButtons` only; maps `?error=` param via `ERROR_MAP`; no email/password form, no divider, no register/forgot-password links
 
-**Checkpoint**: US2 fully functional — Google and GitHub OAuth flows complete end-to-end; cancellation and error states show correct messages on `/login`
-
----
-
-## Phase 5: User Story 3 — Register New Account (Priority: P3)
-
-**Goal**: A new user can create an account with email and password and receive a confirmation email.
-
-**Independent Test**: Navigate to `/register`, submit valid email + matching passwords (≥ 8 chars) → success banner "Check your email to confirm your account."; submit mismatched passwords → inline error; submit existing email → inline error.
-
-### Implementation for User Story 3
-
-- [X] T024 [US3] Create `src/app/(auth)/register/page.tsx` — registration form (email, password, confirmPassword) inside `AuthCard`; uses React Hook Form with `zodResolver(RegisterSchema)` for real-time cross-field confirm-password feedback; `useActionState` bridges to `registerAction` for server-side errors; success state renders banner instead of form; link to `/login`; all targets `min-h-[44px]`; `<label>` + `FieldError` + `aria-describedby` for every field
-- [X] T025 [US3] Create `src/app/(auth)/register/actions.ts` — `registerAction(prevState, formData)` Server Action: validates with `RegisterSchema` (server-side re-validation); calls `supabase.auth.signUp({ email, password })`; on success returns `{ success: true, message: 'Check your email to confirm your account.' }`; on "already registered" error returns `{ error: 'An account with this email already exists.' }`; on other errors returns `{ error: 'Something went wrong. Please try again.' }`
-
-**Checkpoint**: US3 fully functional — registration, all validation error states, and success confirmation banner work independently
+**Checkpoint**: Google OAuth flow complete end-to-end; cancellation and error states show correct messages on `/login`
 
 ---
 
-## Phase 6: User Story 4 — Reset Forgotten Password (Priority: P4)
+## Phase 5: User Story 3 — Register New Account [DESCOPED]
 
-**Goal**: A registered user can request a password-reset link via email.
+**Goal**: ~~A new user can create an account with email and password.~~ **DESCOPED — Google OAuth auto-creates the user on first sign-in.**
 
-**Independent Test**: Navigate to `/forgot-password`, submit any email → always shows "If that email is registered, a reset link was sent." (no enumeration); Supabase sends reset email to registered address.
+- [~] T024 [US3] `src/app/(auth)/register/page.tsx` — created then deleted
+- [~] T025 [US3] `src/app/(auth)/register/actions.ts` — created then deleted
 
-### Implementation for User Story 4
+**Checkpoint**: N/A — phase descoped
 
-- [X] T026 [US4] Create `src/app/(auth)/forgot-password/page.tsx` — email-only form inside `AuthCard`; `useActionState` for server state; success state shows banner "If that email is registered, a reset link was sent." without unmounting form; link "Back to sign in" → `/login`; `min-h-[44px]` on submit; `<label>` + `FieldError` + `aria-describedby`
-- [X] T027 [US4] Create `src/app/(auth)/forgot-password/actions.ts` — `requestPasswordResetAction(prevState, formData)` Server Action: validates with `ForgotPasswordSchema`; calls `supabase.auth.resetPasswordForEmail(email, { redirectTo: '<origin>/auth/callback?next=/update-password' })`; ALWAYS returns `{ success: true, message: 'If that email is registered, a reset link was sent.' }` regardless of whether email exists (prevents email enumeration); on network error returns generic error
+---
 
-**Checkpoint**: US4 fully functional — forgot-password form, always-generic success message, and Supabase reset email triggered
+## Phase 6: User Story 4 — Reset Forgotten Password [DESCOPED]
+
+**Goal**: ~~A registered user can request a password-reset link via email.~~ **DESCOPED — no passwords in use.**
+
+- [~] T026 [US4] `src/app/(auth)/forgot-password/page.tsx` — created then deleted
+- [~] T027 [US4] `src/app/(auth)/forgot-password/actions.ts` — created then deleted
+
+**Checkpoint**: N/A — phase descoped
 
 ---
 
@@ -123,30 +119,26 @@ description: "Task list for Login Page (Authentication)"
 - [X] T028 [P] Create `src/lib/supabase/__tests__/middleware.test.ts` — unit tests for `getSafeRedirect()`: (1) valid relative `/dashboard` → returns `/dashboard`; (2) external URL `https://evil.com` → returns `/`; (3) protocol-relative `//evil.com` → returns `/`; (4) empty string → returns `/`; (5) null → returns `/`; (6) custom fallback used when provided (required by SC-005)
 - [X] T029 [P] Add PWA icons to `public/icons/` — `icon-192.png` (192×192), `icon-512.png` (512×512), `apple-touch-icon.png` (180×180); icons should use the app's primary green (`#68a848`) as background with a simple dumbbell/workout glyph or text "SW" (required by SC-008)
 - [X] T030 Verify responsive layout at 390px and 1280px viewports using browser DevTools: confirm no horizontal scrollbar on any auth page at either size; confirm form card is full-width on mobile and centered card on desktop (SC-007)
-- [X] T031 Run Lighthouse audit on `/login`, `/register`, `/forgot-password` in Chrome DevTools; confirm Accessibility score ≥ 90 on each page; fix any reported label, contrast, or ARIA issues (SC-004)
+- [X] T031 Run Lighthouse audit on `/login` in Chrome DevTools; confirm Accessibility score ≥ 90; fix any reported label, contrast, or ARIA issues (SC-004)
+
+## Unplanned Tasks
+
+- [+] T032 Fix `auth/callback/route.ts` to write session cookies directly onto the `NextResponse.redirect()` object instead of via `next/headers` — `next/headers` cookies are not attached to an explicit redirect response, causing the session to be silently discarded after `exchangeCodeForSession`
+- [+] T033 Add `cross-env NODE_TLS_REJECT_UNAUTHORIZED=0` to the `dev` npm script via `npm install --save-dev cross-env` — required to bypass corporate SSL inspection (self-signed cert in chain) on outbound Supabase API calls in local dev; flag is dev-only and absent from `build`/`start` scripts
 
 ---
 
-## Dependencies
+## Dependencies (Actual)
 
 ```
 Phase 1 (T001–T005)
   └─▶ Phase 2 (T006–T014)
-        └─▶ Phase 3 / US1 (T015–T018)           ← MVP; must complete first
-              ├─▶ Phase 4 / US2 (T019–T023)      ← depends on T017 (login page exists)
-              ├─▶ Phase 5 / US3 (T024–T025)      ← independent of US2; can start after Phase 2
-              └─▶ Phase 6 / US4 (T026–T027)      ← independent of US2/US3; can start after Phase 2
-                    └─▶ Final Phase (T028–T031)   ← after all stories complete
+        └─▶ Phase 4 / US2 (T019–T023)    ← only active user story
+              └─▶ Final Phase (T028–T031)
+                    └─▶ Unplanned (T032–T033)
 ```
 
-**Parallel opportunities within phases**:
-- Phase 1: T003, T005 can run in parallel after T001+T002
-- Phase 2: T006, T007, T008, T009 can run in parallel (different files); T012, T013, T014 can run in parallel after T011
-- Phase 3: T015, T016 can run in parallel; T017 and T018 can run in parallel after T015+T016
-- Phase 4: T019, T020, T021, T022 can run in parallel; T023 depends on T019+T017
-- Phase 5: T024 and T025 can run in parallel after Phase 2
-- Phase 6: T026 and T027 can run in parallel after Phase 2
-- Final: T028, T029, T030, T031 can run in parallel after all stories
+Phases 3, 5, and 6 (US1, US3, US4) were descoped and their tasks deleted.
 
 ## Implementation Strategy
 
